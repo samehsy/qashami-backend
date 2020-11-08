@@ -27,16 +27,18 @@ router.get('/allServices', async function (req, res, next) {
 
 router.get('/serviceByTitle', async function (req, res, next) {
 
-    if (!req.query.title) {
+    if (!req.query.id) {
         return res.status(400).json({
             success: false
         });
     }
-    Service.findOne({ enTitle: req.query.title }).exec(function (err, service) {
+    console.log(req.query);
+
+    Service.findById( req.query.id ).exec(function (err, service) {
         if (service) {
             res.json({ success: true, service: service });
         } else {
-
+            
             res.json({ success: false });
         }
     })

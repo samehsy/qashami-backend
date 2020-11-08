@@ -1,6 +1,9 @@
 var express = require('express');
 var router = express.Router();
 var fs = require('fs');
+var randomstring = require("randomstring");
+var mognoose = require('mongoose');
+
 
 var User = require('../models/user');
 var News = require('../models/news');
@@ -200,24 +203,39 @@ router.post('/updateNews', passport.authenticate('jwt', { session: false }), asy
 
 router.post('/newService', passport.authenticate('jwt', { session: false }), async function (req, res) {
 
-  var b = new Service({
+  var b = {
     arTitle: req.body.arTitle,
     enTitle: req.body.enTitle,
     arContent: req.body.arContent,
     enContent: req.body.enContent,
-    image: req.body.image,
     type: req.body.type
-  });
+  };
 
-  fs.rename('public/temp/' + b.image, 'public/images/' + b.image, (err) => {
-    if (err) throw err;
-  });
+  if (req.body.image) {
+    b = { ...b, image: req.body.image }
+    fs.rename('public/temp/' + b.image, 'public/images/' + b.image, (err) => {
 
-  b.save(function (err, data) {
-    if (err) res.json({ success: false, msg: err });
-    else
-      res.json({ success: true, service: data });
-  })
+    });
+
+  } 
+  if (req.body.id) {
+    let query = {}
+    query = { _id: mognoose.Types.ObjectId(req.body.id) }
+    Service.findOneAndUpdate(query, b, { 'new': true },
+      function (error, result) {
+        if (error) res.json({ success: false, msg: error });
+        else {
+          res.json({ success: true, service: result });
+        }
+      });
+  } else {
+    let newItem = new Service(b).save(function (error, result) {
+      if (error) res.json({ success: false, msg: error });
+      else {
+        res.json({ success: true, service: result });
+      }
+    })
+  }
 
 })
 
@@ -317,29 +335,22 @@ router.post('/updateUserInfo', async function (req, res) {
   }
 
   var query = {};
+  if (req.body.image) {
+    fs.rename('public/temp/' + user.image, 'public/images/' + user.image, (err) => {
+    });
+  }
 
   if (req.body.id) {
     query = { _id: req.body.id }
   }
 
-  console.log(query);
+  console.log(user);
 
   // Find the document
   ContactUser.findOneAndUpdate(query, user, { upsert: true }, function (error, result) {
     if (error || !result) res.json({ success: false, msg: error });
     else {
-      if (user.image != result.image && user.image == '') {
-        try {
-          fs.rename('public/temp/' + user.image, 'public/images/' + user.image, (err) => {
-            fs.unlinkSync('public/images/' + result.image)
-          });
-        } catch (error) {
-
-        }
-
-      }
       res.json({ success: true, user: result });
-
     }
   });
 })
@@ -386,20 +397,22 @@ router.post('/uploadImage', function (req, res) {
     });
   }
 
+  var name = randomstring.generate(10)
   // The name of the input field (i.e. "sampleFile") is used to retrieve the uploaded file
   let sampleFile = req.files.image || req.files.filepond;
 
+  var fileName = name + '.' + sampleFile.mimetype.slice(sampleFile.mimetype.indexOf('/') + 1, sampleFile.mimetype.length);
   // Use the mv() method to place the file somewhere on your server
-  sampleFile.mv('public/temp/' + sampleFile.name, function (err) {
+  sampleFile.mv('public/temp/' + fileName, function (err) {
     if (err) {
       return res.status(500).send(err);
     }
 
     res.json({
       success: true,
-      "fileName": sampleFile.name,
-      //  "url": 'https://backend.moqawalatzone.com/temp/' + sampleFile.name
-      "url": 'http://localhost:3000/temp/' + sampleFile.name
+      "fileName": fileName,
+      //  "url": 'https://backend.moqawalatzone.com/temp/' + fileName
+      "url": 'http://localhost:3000/temp/' + fileName
     });
   });
 });
@@ -410,14 +423,20 @@ router.get('/removeImage', function (req, res) {
       success: false
     });
   }
+  var path = ''
+  if (fs.existsSync('public/temp/' + req.query.fileName)) {
+    path = 'public/temp/' + req.query.fileName;
+  } else {
+    path = 'public/images/' + req.query.fileName;
+  }
 
-  fs.unlink('public/temp/' + req.query.fileName, (err => {
+  console.log(path);
+  fs.unlink(path, (err => {
     if (err) res.json({ success: false, err: err });
     else {
       res.json({ success: true });
     }
   }));
-
 });
 
 
